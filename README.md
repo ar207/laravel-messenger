@@ -1,4 +1,4 @@
-<p style="text-align:center;width:100%;"><img src="/art/preview.jpg" alt="Laravel Messenger"></p>
+<p style="text-align:center;width:100%;"><img src="/art/preview.png" alt="Laravel Messenger"></p>
 
 ## Laravel Messenger
 
