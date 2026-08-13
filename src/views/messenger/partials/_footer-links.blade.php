@@ -8,7 +8,7 @@
 <script src="{{ asset('laravel-messenger/libs/fg-emoji-picker/fgEmojiPicker.js') }}"></script>
 <script src="{{ asset('laravel-messenger/js/pages/index.init.js') }}"></script>
 <script src="{{ asset('laravel-messenger/js/app.js') }}"></script>
-<script src="https://js.pusher.com/8.2.0/pusher.min.js"></script>
+<script src="https://js.pusher.com/8.4.0/pusher.min.js"></script>
 @php
     $currentUser = \mar\messenger\Helpers\Messenger::currentUser();
     $currentUserType = \mar\messenger\Helpers\Messenger::loginType();
@@ -24,6 +24,8 @@
         deleteMessageRoute: "{{ route('messenger.delete') }}",
         messengerModeRoute: "{{ route('messenger.mode.update') }}",
         makeSeen: "{{ route('messenger.message.seen') }}",
+        renderMessageRoute: "{{ route('messenger.message.render', ['id' => 0]) }}",
+        renderThreadsRoute: "{{ route('messenger.threads.render') }}",
         token: "{{ csrf_token() }}",
         pusher: {!! json_encode(config('messenger.pusher')) !!},
         fileIcons: {!! json_encode(config('messenger.file_icons')) !!},

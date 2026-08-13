@@ -220,6 +220,7 @@ class Messenger
      * Create new message
      *
      * @param $data
+     * @return Message
      * @throws \GuzzleHttp\Exception\GuzzleException
      * @throws \Pusher\ApiErrorException
      * @throws \Pusher\PusherException
@@ -248,44 +249,15 @@ class Messenger
         }
         $objMessage->save();
 
-        $senderMessages[] = self::getLatestMessage($data['chat_id']);
-        $senderMessageHtml = view('messenger::partials._conversation', [
-            'messages' => $senderMessages,
-            'user_avatar_name' => self::nameLetters($objMessage->receiver->name),
-        ])->render();
-
-        $receiverMessages[] = self::getLatestMessage($data['chat_id'], $data['receiver_id']);
-        $receiverMessageHtml = view('messenger::partials._conversation', [
-            'messages' => $receiverMessages,
-            'user_avatar_name' => self::nameLetters($objMessage->sender->name),
-        ])->render();
-
-        $senderThreadHtml = view('messenger::partials._chat-users', [
-            'chatUsers' => Message::fetchChatUsers()
-        ])->render();
-
-        $receiverThreadHtml = view('messenger::partials._chat-users', [
-            'chatUsers' => Message::fetchChatUsers($data['receiver_id'], $receiverType)
-        ])->render();
-
-
+        // Send event to receiver....
         self::triggerPusher('messenger-user-' . $receiverType . '-' . $data['receiver_id'], 'new-message', [
             'chat_id' => $data['chat_id'],
+            'message_id' => $objMessage->id,
             'sender_id' => $user->id,
             'receiver_id' => $data['receiver_id'],
-            'message_html' => $receiverMessageHtml,
-            'thread_html' => $receiverThreadHtml,
-            'user_avatar_name' => self::nameLetters($objMessage->receiver->name),
         ]);
 
-        self::triggerPusher('messenger-user-' . Messenger::loginType() . '-' . $user->id, 'new-message', [
-            'chat_id' => $data['chat_id'],
-            'sender_id' => $user->id,
-            'receiver_id' => $data['receiver_id'],
-            'message_html' => $senderMessageHtml,
-            'thread_html' => $senderThreadHtml,
-            'user_avatar_name' => self::nameLetters($objMessage->sender->name),
-        ]);
+        return $objMessage;
     }
 
     /**
@@ -295,7 +267,7 @@ class Messenger
      * @param $receiverId
      * @return array
      */
-    private static function getLatestMessage($chatId, $receiverId = 0)
+    public static function getLatestMessage($chatId, $receiverId = 0)
     {
         $loginId = !empty($receiverId) ? $receiverId : self::loginId();
         $message = Message::where('chat_id', $chatId)->latest()->first();

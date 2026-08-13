@@ -52,15 +52,76 @@ class MessengerController extends Controller
                     $data['file_type'] = !empty($image) ? $image['file_type'] : '';
                     $data['file_size'] = !empty($image) ? $image['file_size'] : '';
                 }
-                Messenger::createMessage($data);
+                $objMessage = Messenger::createMessage($data);
                 $this->success = true;
                 $this->message = "Message sent successfully.";
+
+                $senderMessages = [Messenger::getLatestMessage($data['chat_id'])];
+                $senderMessageHtml = view('messenger::partials._conversation', [
+                    'messages' => $senderMessages,
+                    'user_avatar_name' => Messenger::nameLetters($objMessage->receiver->name),
+                ])->render();
+
+                $senderThreadHtml = view('messenger::partials._chat-users', [
+                    'chatUsers' => Message::fetchChatUsers()
+                ])->render();
+
+                $this->data = [
+                    'message_html' => $senderMessageHtml,
+                    'thread_html' => $senderThreadHtml,
+                    'chat_id' => $objMessage->chat_id,
+                ];
             }
         } catch (\Exception $exception) {
             $this->message = $exception->getMessage();
         }
 
-        return response()->json(['success' => $this->success, 'message' => $this->message]);
+        return response()->json(['success' => $this->success, 'message' => $this->message, 'data' => $this->data]);
+    }
+
+    /**
+     * Renders the HTML for a single message (called via the renderMessageRoute
+     * endpoint after the client receives a Pusher "new-message" event).
+     * We don't send full HTML through the socket anymore — this function exists
+     * so the client can fetch only the HTML for the specific message it needs.
+     *
+     * @param $messageId
+     * @return string
+     */
+    public static function renderMessageHtml($messageId)
+    {
+        $message = Message::with('sender', 'receiver')->find($messageId);
+
+        $currentUser = Messenger::currentUser();
+
+        $avatarUser = ($message->sender_id == $currentUser->id && $message->sender_type == get_class($currentUser))
+            ? $message->receiver
+            : $message->sender;
+
+        return view('messenger::partials._conversation', [
+            'messages' => [$message],
+            'user_avatar_name' => Messenger::nameLetters($avatarUser->name),
+        ])->render();
+    }
+
+    /**
+     * Renders the HTML for the chat threads/sidebar list.
+     * After a new-message Pusher event, the client hits this route to refresh
+     * the left-side thread list (last message, ordering, unread state, etc.)
+     *
+     * @param null $userId
+     * @param null $userType
+     * @return string
+     */
+    public static function renderThreadsHtml($userId = null, $userType = null)
+    {
+        $chatUsers = $userId
+            ? Message::fetchChatUsers($userId, $userType)
+            : Message::fetchChatUsers();
+
+        return view('messenger::partials._chat-users', [
+            'chatUsers' => $chatUsers
+        ])->render();
     }
 
     /**
@@ -165,7 +226,6 @@ class MessengerController extends Controller
                         ->where('receiver_id', $userId)
                         ->where('receiver_type', $userTypeModal);
                 })
-
                     ->orWhere(function ($q2) use ($currentUserId, $currentUserTypeModal, $userId, $userTypeModal) {
                         $q2->where('sender_id', $userId)
                             ->where('sender_type', $userTypeModal)

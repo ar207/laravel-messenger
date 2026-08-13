@@ -4,9 +4,8 @@
  *-------------------------------------------------------------
  */
 let channel = null;
-Pusher.logToConsole = messenger.pusher.debug;
+Pusher.logToConsole = true;
 const pusher = new Pusher(messenger.pusher.key, {
-    encrypted: messenger.pusher.options.encrypted,
     cluster: messenger.pusher.options.cluster,
 });
 
@@ -20,22 +19,22 @@ function searchContacts(inputSelector, listSelector) {
     if (!$input.length || !$list.length) return;
 
     // Show list on focus
-    $input.on('focus', function() {
+    $input.on('focus', function () {
         $list.removeClass('messenger-d-none').addClass('messenger-d-block');
     });
 
     // Hide list on blur (delay to allow click)
-    $input.on('blur', function() {
-        setTimeout(function() {
+    $input.on('blur', function () {
+        setTimeout(function () {
             $list.removeClass('messenger-d-block').addClass('messenger-d-none');
         }, 200);
     });
 
     // Filter list on input
-    $input.on('input', function() {
+    $input.on('input', function () {
         const filter = $input.val().toUpperCase();
 
-        $list.find('li').each(function() {
+        $list.find('li').each(function () {
             const text = $(this).find('p').text().toUpperCase();
             $(this).toggle(text.indexOf(filter) > -1);
         });
@@ -285,8 +284,13 @@ $('#chat-form').submit(function (e) {
                 $('.recent-message_' + chatId).html('').html(recentMessage);
                 $('#chat-form')[0].reset();
                 $('.messenger-file_Upload').removeClass('show').html('');
+                $('.user-conversation_' + response.data.chat_id).append(response.data.message_html);
+                $('#chat-threads').html(response.data.thread_html);
+
                 const e = document.querySelector("#chat-conversation .messenger-simplebar-content-wrapper");
-                e.scrollTop = e.scrollHeight;
+                if (e) {
+                    e.scrollTop = e.scrollHeight;
+                }
             } else {
                 alert(response.message);
             }
@@ -352,37 +356,37 @@ function fetchMessages(userId) {
 
     channel.bind('new-message', function(data) {
 
-        $('#chat-threads').html(data.thread_html);
+        // Thread list update
+        $.get(messenger.renderThreadsRoute, function(html) {
+            $('#chat-threads').html(html);
+        });
 
         if (messenger.activeChatId != data.chat_id) {
             return;
         }
 
-        $('.user-conversation_' + data.chat_id).append(data.message_html);
-        const e = document.querySelector("#chat-conversation .messenger-simplebar-content-wrapper");
-        if (e) {
-            e.scrollTop = e.scrollHeight;
-        }
-        if (!document.hidden) {
-            makeSeen();
-        }
+        const messageRenderUrl = messenger.renderMessageRoute.replace('/0', '/' + data.message_id);
+
+        $.get(messageRenderUrl, function(html) {
+            $('.user-conversation_' + data.chat_id).append(html);
+            const e = document.querySelector("#chat-conversation .messenger-simplebar-content-wrapper");
+            if (e) {
+                e.scrollTop = e.scrollHeight;
+            }
+            if (!document.hidden) {
+                makeSeen();
+            }
+        });
     });
 
     channel.bind('pusher:subscription_succeeded', function (members) {
         console.log("subscription_succeeded");
         console.log(members);
-        // 'members' contains information about users currently subscribed to the channel
-        // members.each(function(member) {
-        //     console.log(member.info.user_id + ' is online');
-        //     // Update UI to indicate online status for this user
-        // });
     });
 
     channel.bind('pusher:member_removed', function (member) {
         console.log("member_removed");
-        console.log(members);
         console.log(member.info.user_id + ' is offline');
-        // Update UI to indicate offline status for this user
     });
 }
 
